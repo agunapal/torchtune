@@ -821,6 +821,8 @@ class FullFinetuneRecipeDistributed(FTRecipeInterface):
                     labels = labels.reshape(-1)
                     logits = logits.reshape(-1, logits.size(-1))
 
+                log.info(f"labels shape: {labels.shape}")
+                log.info(f"logits shape: {logits[0].shape}")
                 # Compute loss
                 # Loss is normalized by default so we multiply by the number of tokens
                 # This way we can normalize by the total number of tokens if we're accumulating gradients

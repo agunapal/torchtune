@@ -646,11 +646,14 @@ class TransformerDecoder(nn.Module):
         # Output list if hidden states are requested, otherwise just the output
         # TODO: always output a list to have a consistent output type
         output = output if not hidden else [*hidden, output]
+        print("len output", len(output))
+        print("output shape", output[0].shape)
         return output
 
     def unembed(self, h):
         # shape: [b, s, d]
         h = self.norm(h)
+        print("h shape", h.shape)
 
         if self.num_output_chunks > 0:
             output = self.chunked_output(h)
