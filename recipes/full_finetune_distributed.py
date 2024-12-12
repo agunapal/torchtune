@@ -6,6 +6,7 @@
 
 import sys
 import time
+import types
 
 from functools import partial
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -13,9 +14,12 @@ from warnings import warn
 
 import torch
 
+from liger_kernel.torchtune.modules.transformers import decoder_forward
+
 from liger_kernel.transformers.fused_linear_cross_entropy import (
     LigerFusedLinearCrossEntropyLoss,
 )
+
 from omegaconf import DictConfig, ListConfig
 
 from torch import nn
@@ -273,6 +277,8 @@ class FullFinetuneRecipeDistributed(FTRecipeInterface):
             ac_mode=cfg.get("ac_mode", None),
             ac_option=cfg.get("ac_option", None),
         )
+
+        self._model.forward = types.MethodType(decoder_forward, self._model)
         self._tokenizer = config.instantiate(cfg.tokenizer)
 
         self._optimizer = self._setup_optimizer(
@@ -286,7 +292,6 @@ class FullFinetuneRecipeDistributed(FTRecipeInterface):
         )
 
         # initialize loss
-        # self._loss_fn = config.instantiate(cfg.loss)
         self._loss_fn = LigerFusedLinearCrossEntropyLoss()
 
         if self._compile:
@@ -826,32 +831,17 @@ class FullFinetuneRecipeDistributed(FTRecipeInterface):
                     labels = labels.reshape(-1)
                     logits = logits.reshape(-1, logits.size(-1))
 
-                shift_hidden_states = logits[..., :-1, :].contiguous()
-                shift_labels = labels[..., 1:].contiguous()
-
-                # flatten tokens
-                shift_hidden_states = shift_hidden_states.view(-1, 2048)
-                shift_labels = shift_labels.view(-1)
-
-                # log.info(f"Shift hidden states shape: {shift_hidden_states.shape}")
-                # log.info(f"Shift labels shape: {shift_labels.shape}")
-
-                current_loss = (
-                    self._loss_fn(
-                        self._model.output.tied_module.weight,
-                        shift_hidden_states,
-                        shift_labels,
-                    )
-                    * current_num_tokens
-                )
-                log.info(
-                    f"Current loss: {current_loss} curent num tokens: {current_num_tokens}"
-                )
-
                 # Compute loss
                 # Loss is normalized by default so we multiply by the number of tokens
                 # This way we can normalize by the total number of tokens if we're accumulating gradients
-                # current_loss = self._loss_fn(logits, labels) * current_num_tokens
+                current_loss = (
+                    self._loss_fn(
+                        self._model.output.tied_module.weight,
+                        logits,
+                        labels,
+                    )
+                    * current_num_tokens
+                )
 
                 # free logits otherwise it peaks backward memory
                 del logits
