@@ -808,6 +808,8 @@ class FullFinetuneRecipeDistributed(FTRecipeInterface):
                 # Shape [b, s], needed for the loss not the model
                 labels = batch.pop("labels")
 
+                raise ValueError(self._model.output.tied_module.weight)
+
                 with self.activations_handling_ctx:
                     logits = self._model(**batch)
 
