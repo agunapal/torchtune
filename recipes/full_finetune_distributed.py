@@ -811,6 +811,8 @@ class FullFinetuneRecipeDistributed(FTRecipeInterface):
                 with self.activations_handling_ctx:
                     logits = self._model(**batch)
 
+                raise ValueError(self._model.output.tied_module.weight)
+
                 # Shift labels to compute loss
                 # equivalent to doing labels[..., 1:] and logits[..., :-1, :]
                 # But this way we dont need to slice the logits. We just add an ignore index to labels.
